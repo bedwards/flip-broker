@@ -1,0 +1,50 @@
+name: flip-broker
+
+service:
+  name: flip-broker-api
+  type: web
+
+  git:
+    repository: github.com/bedwards/flip-broker
+    branch: main
+    build_command: npm ci && npm run build
+    run_command: npm start
+
+  instance_type: free
+  regions:
+    - was  # Washington DC
+
+  ports:
+    - port: 3000
+      protocol: http
+
+  env:
+    - key: NODE_ENV
+      value: production
+    - key: PORT
+      value: "3000"
+    - key: DATABASE_URL
+      secret: DATABASE_URL
+    - key: EBAY_CLIENT_ID
+      secret: EBAY_CLIENT_ID
+    - key: EBAY_CLIENT_SECRET
+      secret: EBAY_CLIENT_SECRET
+    - key: ANTHROPIC_API_KEY
+      secret: ANTHROPIC_API_KEY
+
+  health_checks:
+    - type: http
+      port: 3000
+      path: /health
+      interval_seconds: 30
+      timeout_seconds: 10
+
+  scaling:
+    min: 1
+    max: 1
+
+database:
+  name: flip-broker-db
+  engine: postgres
+  region: was
+  instance_type: free

@@ -1,0 +1,57 @@
+#!/bin/bash
+# Pre-commit hook: lint, type-check, and detect secrets
+
+set -e
+
+echo "Running pre-commit checks..."
+
+# Check for secrets/credentials (skip .example files)
+echo -n "Checking for secrets... "
+SECRETS_PATTERN='(api[_-]?key|secret|password|credential|token|private[_-]?key)[\s]*[=:][\s]*["\047][^"\047]{8,}'
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -v '\.example$' | grep -v '\.md$' || true)
+
+if [ -n "$STAGED_FILES" ]; then
+    if echo "$STAGED_FILES" | xargs grep -iE "$SECRETS_PATTERN" 2>/dev/null; then
+        echo ""
+        echo "ERROR: Potential secrets detected in staged files!"
+        echo "If this is a false positive, use: git commit --no-verify"
+        exit 1
+    fi
+fi
+echo "OK"
+
+# Check for .env files (should never be committed)
+echo -n "Checking for .env files... "
+if git diff --cached --name-only | grep -E '^\.env$|^\.env\.[^e]' | grep -v '\.example$'; then
+    echo ""
+    echo "ERROR: .env files should not be committed!"
+    echo "Add to .gitignore and use .env.example for templates."
+    exit 1
+fi
+echo "OK"
+
+# Run linter if available
+if [ -f "package.json" ] && grep -q '"lint"' package.json; then
+    echo -n "Running linter... "
+    if npm run lint --silent 2>/dev/null; then
+        echo "OK"
+    else
+        echo "FAILED"
+        exit 1
+    fi
+fi
+
+# Run type check if available
+if [ -f "tsconfig.json" ]; then
+    echo -n "Running type check... "
+    if npx tsc --noEmit --pretty false 2>/dev/null; then
+        echo "OK"
+    else
+        echo "FAILED"
+        exit 1
+    fi
+fi
+
+echo ""
+echo "All pre-commit checks passed!"
